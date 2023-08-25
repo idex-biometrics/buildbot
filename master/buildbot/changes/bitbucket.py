@@ -159,6 +159,18 @@ class BitbucketPullrequestPoller(base.ReconfigurablePollingChangeSource, PullReq
                     revision = commit_json['hash']
                     revlink = commit_json['links']['html']['href']
 
+                    # Retrieve the list of modified files in the commit
+                    response = yield self._http.get(
+                        str(commit_json['links']['diff']['href'])
+                    )
+                    content = yield response.content()
+                    content = content.decode().split('\n')
+                    files = [
+                        s.replace('+++ b/', '')
+                        for s in content
+                        if s.startswith('+++') and not '/dev/null' in s
+                    ]
+
                     # parse repo api page
                     response = yield self._http.get(
                         str(pr['source']['repository']['links']['self']['href'])
@@ -185,6 +197,7 @@ class BitbucketPullrequestPoller(base.ReconfigurablePollingChangeSource, PullReq
                                     **self.extractProperties(pr),
                                     },
                         src='bitbucket',
+                        files=files,
                     )
 
     def _getCurrentRev(self, pr_id):
